@@ -1,0 +1,51 @@
+on: [push, pull_request]
+
+jobs:
+  test-devstack-swift:
+    runs-on: ubuntu-latest
+    name: Test Devstack Swift Service
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Save Memory and Disk Usage Info
+        run: |
+          free -h > memory-usage
+          df -h > disk-usage
+
+      - id: devstack
+        name: Run Devstack Swift Action
+        uses: ./
+
+      - name: Print Memory and Disk Usage
+        run: |
+          echo "Memory usage before:"
+          cat memory-usage
+          echo "Memory usage after:"
+          free -h
+          echo "Disk usage before:"
+          cat disk-usage
+          echo "Disk usage after:"
+          df -h
+
+      - name: Import Openstack Credentials
+        run: echo "${{ steps.devstack.outputs.credentials }}" > openrc
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10' 
+
+      - name: Install Openstack Client
+        run: pip3 install python-openstackclient
+
+      - name: Openstack Object Storage Functionality Test
+        run: |
+          cat openrc
+          . openrc
+          openstack container create default
+          echo hello > greading
+          openstack object create default greading
+          rm greading
+          openstack object save default greading
+          grep -Fxq hello greading
+      

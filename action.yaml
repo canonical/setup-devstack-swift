@@ -1,0 +1,93 @@
+name: 'Devstack Swift Test Instance'
+
+description: 'Create a openstack swift instance for test purpose'
+
+outputs:
+  credentials:
+    description: >
+      Credentials used to authenticate access to swift test instance.
+      For swift API, it's OpenStack RC file style i.g. export <env-name>=<env-value>
+    value: ${{ steps.output-credentials.outputs.credentials }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup LXD
+      shell: bash
+      run: |
+        sudo snap install lxd
+        sudo snap refresh lxd
+        sudo lxd waitready
+        sudo lxd init --auto
+        sudo lxc project create devstack -c features.images=false
+        sudo lxc profile show default | sudo lxc profile edit default --project devstack
+        sudo lxc network create lxdbrstack ipv6.address=none ipv4.address=10.9.0.1/16 ipv4.nat=true --project devstack
+        sudo lxc network detach-profile lxdbr0 default eth0 --project devstack
+        sudo lxc network attach-profile lxdbrstack default eth0 --project devstack
+        sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
+        bash -c "sudo usermod -a -G lxd $USER"
+
+    - name: LXD Devstack Image Cache
+      id: devstack-swift-cache
+      uses: actions/cache@v3
+      with:
+        path: ${{ github.workspace }}/.devstack/
+        key: lxd-devstack-keystone-swift-20.04
+
+    - name: Buid Devstack Swift LXD Container
+      if: steps.devstack-swift-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        lxc launch ubuntu:20.04 devstack --project devstack
+        timeout 120s bash -c 'until lxc exec devstack --project devstack -- bash -c "[ -d /home/ubuntu ]"; do sleep 1 && echo .; done; echo'
+        lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- git clone -b stable/yoga https://opendev.org/openstack/devstack
+        lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- cp ./devstack/samples/local.conf ./devstack
+        lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo disable_all_services >> ./devstack/local.conf"
+        lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo enable_service key mysql s-proxy s-object s-container s-account >> ./devstack/local.conf"
+        lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo ENABLE_KSM=False >> ./devstack/local.conf"
+        lxc exec devstack --cwd /home/ubuntu/devstack --project devstack -- sudo --login --user ubuntu /home/ubuntu/devstack/stack.sh
+
+    - name: Generate Devstack Image Snapshot 
+      if: steps.devstack-swift-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        mkdir .devstack
+        cd .devstack
+        echo $(lxc list -c4 --format csv devstack --project devstack | cut -d' ' -f1) > ipv4
+        lxc stop devstack --project devstack
+        lxc snapshot devstack devstack-snapshot --project devstack
+        lxc publish devstack/devstack-snapshot --alias devstack-swift --project devstack
+        lxc image export devstack-swift devstack-swift --project devstack
+        lxc image delete devstack-swift --project devstack
+        lxc start devstack --project devstack
+
+    - name: Resume Devstack Swift Image From Tarball
+      if: always() && steps.devstack-swift-cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        cd .devstack
+        lxc image import devstack-swift.tar.gz --alias devstack-swift --project devstack
+        lxc init devstack-swift devstack --project devstack
+        lxc network attach lxdbrstack devstack eth0 eth0 --project devstack
+        lxc config device set devstack eth0 ipv4.address $(cat ipv4) --project devstack
+        lxc start devstack --project devstack
+
+    - name: Create Credentials
+      if: always()
+      shell: bash
+      run: |
+        timeout 120s bash -c "until [[ \$(lxc list -c4 --format csv devstack --project devstack) ]]; do sleep 1 && echo .; done; echo"
+        lxc exec devstack --project devstack -- bash -c ". /home/ubuntu/devstack/openrc &> /dev/null && printenv | grep OS_ | grep -v OS_AUTH_URL | sed 's/^/export /g'" > credentials
+        echo "export OS_AUTH_URL=http://$(lxc list -c4 --format csv devstack --project devstack | cut -d' ' -f1)/identity" >> credentials
+        cat credentials
+
+    - name: Output Credentials
+      id: output-credentials
+      shell: bash
+      run: |
+        CREDENTIALS="$(cat credentials)"
+        CREDENTIALS="${CREDENTIALS//'%'/'%25'}"
+        CREDENTIALS="${CREDENTIALS//$'\n'/'%0A'}"
+        CREDENTIALS="${CREDENTIALS//$'\r'/'%0D'}"
+        echo "::set-output name=credentials::$CREDENTIALS"
+        rm credentials
