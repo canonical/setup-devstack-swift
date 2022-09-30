@@ -1,0 +1,55 @@
+on: [push, pull_request]
+
+jobs:
+  test-devstack-swift-s3api:
+    runs-on: ubuntu-latest
+    name: Test Devstack Swift Service
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Save Memory and Disk Usage Info
+        run: |
+          free -h > memory-usage
+          df -h > disk-usage
+
+      - id: devstack
+        name: Run Devstack Swift Action
+        uses: ./
+        with:
+          s3api: "true"
+
+      - name: Print Memory and Disk Usage
+        run: |
+          echo "Memory usage before:"
+          cat memory-usage
+          echo "Memory usage after:"
+          free -h
+          echo "Disk usage before:"
+          cat disk-usage
+          echo "Disk usage after:"
+          df -h
+
+      - name: Import Openstack Credentials
+        run: echo "${{ steps.devstack.outputs.credentials }}" > credentials
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10' 
+
+      - name: Install AWS S3 Client
+        run: pip3 install boto3
+
+      - name: Openstack Object Storage S3 API Functionality Test
+        shell: python
+        run: |
+          import boto3
+          import configparser
+
+          config = configparser.ConfigParser()
+          config.read_file(open("credentials"))
+          s3 = boto3.client('s3', **config["default"])
+
+          s3.create_bucket(Bucket="test")
+          s3.put_object(Bucket="test", Key="greeting", Body=b"hello")
+          assert s3.get_object(Bucket="test", Key="greeting")["Body"].read() == b"hello"

@@ -11,6 +11,7 @@ inputs:
       actions.
     required: true
     default: "10.100.115.2/24"
+
   use-cache:
     description: >
       Use Github action cache to speed up devstack build time. setup-devstack-swift will use
@@ -19,11 +20,21 @@ inputs:
       (building from scratch and generating cache is slower than building from scratch alone).
     required: true
     default: "true"
+
+  s3api:
+    description: >
+      Enable swift s3api middleware to emulate the S3 REST api on top of swift. 
+    required: true
+    default: "false"
+
 outputs:
   credentials:
     description: >
       Credentials used to authenticate access to swift test instance.
-      For swift API, it's OpenStack RC file style i.g. export <env-name>=<env-value>
+      For swift API:
+        It's OpenStack RC file style i.g. export <env-name>=<env-value>.
+      For S3 API: 
+        It's in ini file format with three keys: aws_access_key_id, aws_secret_access_key and endpoint_url.
     value: ${{ steps.output-credentials.outputs.credentials }}
 
 runs:
@@ -71,7 +82,7 @@ runs:
       uses: actions/cache@v3
       with:
         path: ${{ github.workspace }}/.devstack/
-        key: lxd-devstack-keystone-swift-20.04-${{ inputs.network }}
+        key: lxd-devstack-keystone-swift-20.04-${{ inputs.network }}${{ inputs.s3api == 'true' && '-s3api' || '' }}
 
     - name: Buid Devstack Swift LXD Container
       if: inputs.use-cache != 'true' || steps.devstack-swift-cache.outputs.cache-hit != 'true'
@@ -86,6 +97,7 @@ runs:
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- cp ./devstack/samples/local.conf ./devstack
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo disable_all_services >> ./devstack/local.conf"
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo enable_service key mysql s-proxy s-object s-container s-account >> ./devstack/local.conf"
+        [ ${{ inputs.s3api }} = true ] && lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo enable_service s3api >> ./devstack/local.conf"
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo ENABLE_KSM=False >> ./devstack/local.conf"
         lxc exec devstack --cwd /home/ubuntu/devstack --project devstack -- sudo --login --user ubuntu /home/ubuntu/devstack/stack.sh
 
@@ -122,7 +134,82 @@ runs:
         echo "export OS_AUTH_URL=http://$(lxc list -c4 --format csv devstack --project devstack | cut -d' ' -f1)/identity" >> credentials
         cat credentials
 
+    - name: Convert Credentials to S3 Style
+      if: inputs.s3api == 'true'
+      shell: python
+      run: |
+        import os
+        import re
+        import json
+        import posixpath
+        import subprocess
+        import configparser
+        import urllib.request
+
+        rc_parser = configparser.ConfigParser()
+        rc_parser.optionxform = str
+        rc_file = open("credentials").read()
+        rc_file = re.sub("^export ", "", rc_file, flags=re.MULTILINE)
+        rc_parser.read_string("[default]\n" + rc_file)
+        os.environ.update(rc_parser["default"])
+
+        auth_url = posixpath.join(os.getenv("OS_AUTH_URL"), "v3/auth/tokens")
+        response = urllib.request.urlopen(urllib.request.Request(
+            url=auth_url,
+            method="POST",
+            data=json.dumps(
+                {
+                    "auth": {
+                        "identity": {
+                            "methods": ["password"],
+                            "password": {
+                                "user": {
+                                    "name": os.getenv("OS_USERNAME"),
+                                    "domain": {"id": os.getenv("OS_USER_DOMAIN_ID")},
+                                    "password": os.getenv("OS_PASSWORD")
+                                }
+                            }
+                        },
+                        "scope": {
+                            "project": {
+                                "name": os.getenv("OS_PROJECT_NAME"),
+                                "domain": {"id": os.getenv("OS_PROJECT_DOMAIN_ID")}
+                            }
+                        }
+                    }
+                }).encode(),
+            headers={"Content-Type": "application/json"}
+        ))
+
+        with response as f:
+            token = json.loads(f.read().decode())
+        swift_service = [
+            service for service in token["token"]["catalog"]
+            if service["name"] == "swift"
+        ][0]
+        swift_endpoint = [
+            endpoint["url"] for endpoint in swift_service["endpoints"]
+            if endpoint["interface"] == "admin"
+        ][0]
+        ec2_credential_create_cmd = [
+            "lxc", "exec", "devstack", "--project", "devstack", "--",
+            "bash", "-c",
+            ". /home/ubuntu/devstack/openrc &> /dev/null && openstack ec2 credentials create -f json"
+        ]
+        ec2_credential = json.loads(subprocess.check_output(ec2_credential_create_cmd))
+        credentials = [
+            "[default]",
+            f"aws_access_key_id = {ec2_credential['access']}",
+            f"aws_secret_access_key = {ec2_credential['secret']}",
+            f"endpoint_url = {swift_endpoint}"
+        ]
+        credentials = "\n".join(credentials)
+        with open("credentials", "w+") as f:
+            f.write(credentials)
+        print(credentials)
+
     - name: Output Credentials
+      if: always()
       id: output-credentials
       shell: bash
       run: |
