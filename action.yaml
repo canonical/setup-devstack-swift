@@ -7,11 +7,18 @@ inputs:
     description: >
       IPv4 network address and network prefix reserved for devstack server in CIDR notation.
       Network prefix bits must be less than 31 since an additional IPv4 address need to be allocated
-      for the host. Upadte this option only if the default address conflicts with other Github 
+      for the host. Update this option only if the default address conflicts with other Github 
       actions.
     required: true
     default: "10.100.115.2/24"
-
+  use-cache:
+    description: >
+      Use Github action cache to speed up devstack build time. setup-devstack-swift will use
+      1 GiB of cache, disable this only if other slower steps require that 1 GiB of 
+      cache. Or the workflow runs are very infrequent, cache will be expired each time 
+      (building from scratch and generating cache is slower than building from scratch alone).
+    required: true
+    default: "true"
 outputs:
   credentials:
     description: >
@@ -59,6 +66,7 @@ runs:
         bash -c "sudo usermod -a -G lxd $USER"
 
     - name: LXD Devstack Image Cache
+      if: inputs.use-cache == 'true'
       id: devstack-swift-cache
       uses: actions/cache@v3
       with:
@@ -66,7 +74,7 @@ runs:
         key: lxd-devstack-keystone-swift-20.04-${{ inputs.network }}
 
     - name: Buid Devstack Swift LXD Container
-      if: steps.devstack-swift-cache.outputs.cache-hit != 'true'
+      if: inputs.use-cache != 'true' || steps.devstack-swift-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
         lxc init ubuntu:20.04 devstack --project devstack
@@ -82,7 +90,7 @@ runs:
         lxc exec devstack --cwd /home/ubuntu/devstack --project devstack -- sudo --login --user ubuntu /home/ubuntu/devstack/stack.sh
 
     - name: Generate Devstack Image Snapshot 
-      if: steps.devstack-swift-cache.outputs.cache-hit != 'true'
+      if: inputs.use-cache == 'true' && steps.devstack-swift-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
         mkdir .devstack
@@ -95,7 +103,7 @@ runs:
         lxc start devstack --project devstack
 
     - name: Resume Devstack Swift Image From Tarball
-      if: always() && steps.devstack-swift-cache.outputs.cache-hit == 'true'
+      if: always() && inputs.use-cache == 'true' && steps.devstack-swift-cache.outputs.cache-hit == 'true'
       shell: bash
       run: |
         cd .devstack
