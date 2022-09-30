@@ -2,6 +2,16 @@ name: 'Devstack Swift Test Instance'
 
 description: 'Create a openstack swift instance for test purpose'
 
+inputs:
+  network:
+    description: >
+      IPv4 network address and network prefix reserved for devstack server in CIDR notation.
+      Network prefix bits must be less than 31 since an additional IPv4 address need to be allocated
+      for the host. Upadte this option only if the default address conflicts with other Github 
+      actions.
+    required: true
+    default: "10.100.115.2/24"
+
 outputs:
   credentials:
     description: >
@@ -12,6 +22,27 @@ outputs:
 runs:
   using: "composite"
   steps:
+    - name: Allocate network address
+      id: parse-network
+      shell: python
+      run: |
+        import ipaddress
+        import itertools
+
+        interface = ipaddress.IPv4Interface("${{ inputs.network }}")
+        address = interface.ip
+        network = interface.network
+        prefix_len = network.prefixlen
+        if prefix_len >= 31:
+            raise ValueError(
+                "Network prefix length greater or equal to 31, can't allocate network address for host"
+            )
+        for host_address in itertools.islice(network, 1, None):
+            if host_address != address:
+                print("::set-output name=devstack-ip::{}".format(address))
+                print("::set-output name=host-address::{}/{}".format(host_address, prefix_len))
+                break
+
     - name: Setup LXD
       shell: bash
       run: |
@@ -21,7 +52,7 @@ runs:
         sudo lxd init --auto
         sudo lxc project create devstack -c features.images=false
         sudo lxc profile show default | sudo lxc profile edit default --project devstack
-        sudo lxc network create lxdbrstack ipv6.address=none ipv4.address=10.9.0.1/16 ipv4.nat=true --project devstack
+        sudo lxc network create lxdbrstack ipv6.address=none ipv4.address=${{ steps.parse-network.outputs.host-address }} ipv4.nat=true --project devstack
         sudo lxc network detach-profile lxdbr0 default eth0 --project devstack
         sudo lxc network attach-profile lxdbrstack default eth0 --project devstack
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
@@ -32,13 +63,16 @@ runs:
       uses: actions/cache@v3
       with:
         path: ${{ github.workspace }}/.devstack/
-        key: lxd-devstack-keystone-swift-20.04
+        key: lxd-devstack-keystone-swift-20.04-${{ inputs.network }}
 
     - name: Buid Devstack Swift LXD Container
       if: steps.devstack-swift-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        lxc launch ubuntu:20.04 devstack --project devstack
+        lxc init ubuntu:20.04 devstack --project devstack
+        lxc network attach lxdbrstack devstack eth0 eth0 --project devstack
+        lxc config device set devstack eth0 ipv4.address ${{ steps.parse-network.outputs.devstack-ip }} --project devstack
+        lxc start devstack --project devstack
         timeout 120s bash -c 'until lxc exec devstack --project devstack -- bash -c "[ -d /home/ubuntu ]"; do sleep 1 && echo .; done; echo'
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- git clone -b stable/yoga https://opendev.org/openstack/devstack
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- cp ./devstack/samples/local.conf ./devstack
@@ -53,7 +87,6 @@ runs:
       run: |
         mkdir .devstack
         cd .devstack
-        echo $(lxc list -c4 --format csv devstack --project devstack | cut -d' ' -f1) > ipv4
         lxc stop devstack --project devstack
         lxc snapshot devstack devstack-snapshot --project devstack
         lxc publish devstack/devstack-snapshot --alias devstack-swift --project devstack
@@ -69,7 +102,7 @@ runs:
         lxc image import devstack-swift.tar.gz --alias devstack-swift --project devstack
         lxc init devstack-swift devstack --project devstack
         lxc network attach lxdbrstack devstack eth0 eth0 --project devstack
-        lxc config device set devstack eth0 ipv4.address $(cat ipv4) --project devstack
+        lxc config device set devstack eth0 ipv4.address ${{ steps.parse-network.outputs.devstack-ip }} --project devstack
         lxc start devstack --project devstack
 
     - name: Create Credentials
