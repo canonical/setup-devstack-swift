@@ -1,13 +1,13 @@
 # canonical/setup-devstack-swift
 
-This action is used to set up an ephemeral OpenStack Swift with Keystone / S3 service using devstack.
+This action is used to set up an ephemeral OpenStack Swift service or S3 service using devstack.
 
 ## Usage
 
 ```yaml
       - name: Setup Devstack Swift
         id: setup-devstack-swift
-        uses: canonical/setup-devstack-swift@1.0.0
+        uses: canonical/setup-devstack-swift@v1
       - name: Use OpenStack Object Storage
         run: |
           echo "${{ steps.setup-devstack-swift.outputs.credentials }}" > openrc
