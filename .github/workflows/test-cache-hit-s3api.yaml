@@ -1,0 +1,14 @@
+on:
+  workflow_run:
+    workflows: [Test Cache Miss (s3api)]
+    types:
+      - completed
+
+name: Test Cache Hit (s3api)
+
+concurrency: test-s3api
+
+jobs:
+  run-test:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/test-s3api.yaml

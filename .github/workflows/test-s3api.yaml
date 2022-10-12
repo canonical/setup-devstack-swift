@@ -1,4 +1,7 @@
-on: [push, pull_request]
+on:
+  workflow_call:
+
+name: Test (s3api)
 
 jobs:
   test-devstack-swift-s3api:

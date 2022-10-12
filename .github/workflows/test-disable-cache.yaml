@@ -1,5 +1,7 @@
 on: [push, pull_request]
 
+name: Test Cache Disabled
+
 jobs:
   test-devstack-swift:
     runs-on: ubuntu-latest

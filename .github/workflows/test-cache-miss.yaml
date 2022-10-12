@@ -1,0 +1,33 @@
+on: [push, pull_request]
+
+name: Test Cache Miss
+
+concurrency: test
+
+jobs:
+  delete-cache:
+    name: Delete Cache
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete Cache
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const cacheKeys = (await github.rest.actions.getActionsCacheList({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            })).data.actions_caches.map(cache => cache.key);
+
+            const key = "lxd-devstack-keystone-swift-20.04-10.100.115.2/24";
+
+            if (cacheKeys.includes(key)) {
+              await github.rest.actions.deleteActionsCacheByKey({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                key,
+              });
+            }
+  run-test:
+    needs: delete-cache
+    name: Run Test
+    uses: ./.github/workflows/test.yaml

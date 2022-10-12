@@ -1,0 +1,14 @@
+on:
+  workflow_run:
+    workflows: [Test Cache Miss]
+    types:
+      - completed
+
+name: Test Cache Hit
+
+concurrency: test
+
+jobs:
+  run-test:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/test.yaml
