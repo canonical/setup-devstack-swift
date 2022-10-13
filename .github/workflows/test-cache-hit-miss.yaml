@@ -6,7 +6,6 @@ concurrency: test
 
 jobs:
   run-test-cache-miss:
-    needs: delete-cache
     name: Cache Miss
     uses: ./.github/workflows/test.yaml
     with:
