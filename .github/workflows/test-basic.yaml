@@ -1,0 +1,10 @@
+on: [push, pull_request]
+
+name: Basic Test
+
+jobs:
+  run-test:
+    uses: ./.github/workflows/test.yaml
+
+  run-test-s3api:
+    uses: ./.github/workflows/test-s3api.yaml

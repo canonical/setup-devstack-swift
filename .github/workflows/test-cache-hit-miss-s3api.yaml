@@ -5,46 +5,16 @@ name: Test (s3api)
 concurrency: test-s3api
 
 jobs:
-  delete-cache:
-    name: Delete Cache
-    runs-on: ubuntu-latest
-    steps:
-      - name: Delete Cache
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const cacheKeys = (await github.rest.actions.getActionsCacheList({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            })).data.actions_caches.map(cache => cache.key);
-            
-            const knownKeys = [
-              "lxd-devstack-keystone-swift-20.04-10.100.115.2/24",
-              "lxd-devstack-keystone-swift-20.04-10.100.115.2/24-s3api",
-            ];
-            
-            const unknownKeys = cacheKeys.filter(k => !knownKeys.includes(k));
-
-            if (unknownKeys.length !== 0) {
-              throw `unknown cache keys ${unknownKeys}`;
-            }
-
-            const key = "lxd-devstack-keystone-swift-20.04-10.100.115.2/24-s3api";
-
-            if (cacheKeys.includes(key)) {
-              await github.rest.actions.deleteActionsCacheByKey({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                key,
-              });
-            }
-
   run-test-cache-miss:
     needs: delete-cache
     name: Cache Miss
     uses: ./.github/workflows/test-s3api.yaml
+    with:
+      ${{ github.sha }}-s3api
 
   run-test-cache-hit:
     needs: run-test-cache-miss
     name: Cache Hit
     uses: ./.github/workflows/test-s3api.yaml
+    with:
+      ${{ github.sha }}-s3api
