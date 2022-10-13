@@ -3,7 +3,7 @@ on:
     inputs:
       cache-key:
         default: ""
-        required: true
+        required: false
         type: string
 
 name: Test OpenStack Swift
