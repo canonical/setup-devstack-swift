@@ -1,6 +1,6 @@
 on: [push, pull_request]
 
-name: Test Cache Miss (s3api)
+name: Test (s3api)
 
 concurrency: test-s3api
 
@@ -17,6 +17,17 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             })).data.actions_caches.map(cache => cache.key);
+            
+            const knownKeys = [
+              "lxd-devstack-keystone-swift-20.04-10.100.115.2/24",
+              "lxd-devstack-keystone-swift-20.04-10.100.115.2/24-s3api",
+            ];
+            
+            const unknownKeys = cacheKeys.filter(k => !knownKeys.includes(k));
+
+            if (unknownKeys.length !== 0) {
+              throw `unknown cache keys ${unknownKeys}`;
+            }
 
             const key = "lxd-devstack-keystone-swift-20.04-10.100.115.2/24-s3api";
 
@@ -27,7 +38,13 @@ jobs:
                 key,
               });
             }
-  run-test:
+
+  run-test-cache-miss:
     needs: delete-cache
-    name: Run Test
+    name: Cache Miss
+    uses: ./.github/workflows/test-s3api.yaml
+
+  run-test-cache-hit:
+    needs: run-test-cache-miss
+    name: Cache Hit
     uses: ./.github/workflows/test-s3api.yaml

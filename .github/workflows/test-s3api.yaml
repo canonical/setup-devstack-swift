@@ -1,7 +1,7 @@
 on:
   workflow_call:
 
-name: Test (s3api)
+name: Test OpenStack Swift
 
 jobs:
   test-devstack-swift-s3api:
