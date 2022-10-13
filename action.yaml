@@ -89,7 +89,7 @@ runs:
       uses: actions/cache@v3
       with:
         path: ${{ github.workspace }}/.devstack/
-        key: ${{ inputs.cache-key == '' && inputs.cache-key || format( 'lxd-devstack-keystone-swift-20.04-{0}{1}', inputs.network, inputs.s3api == 'true' && '-s3api' || '') }}
+        key: ${{ inputs.cache-key != '' && inputs.cache-key || format( 'lxd-devstack-keystone-swift-20.04-{0}{1}', inputs.network, inputs.s3api == 'true' && '-s3api' || '') }}
 
     - name: Buid Devstack Swift LXD Container
       if: inputs.use-cache != 'true' || steps.devstack-swift-cache.outputs.cache-hit != 'true'
