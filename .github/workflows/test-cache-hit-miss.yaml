@@ -10,11 +10,11 @@ jobs:
     name: Cache Miss
     uses: ./.github/workflows/test.yaml
     with:
-      ${{ github.sha }}
+      cache-key: ${{ github.sha }}
 
   run-test-cache-hit:
     needs: run-test-cache-miss
     name: Cache Hit
     uses: ./.github/workflows/test.yaml
     with:
-      ${{ github.sha }}
+      cache-key: ${{ github.sha }}
