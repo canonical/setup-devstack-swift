@@ -56,6 +56,14 @@ Network prefix bits must less than or equal to 30
 since a network address needs to be allocated to host.
 Only change this option when the network address conflicts with other services.
 
+#### `inputs.cache-key`
+
+**Default:** `""`
+
+The GitHub action cache key used for this action.
+When set to `""`, it will generate a cache key based on the default cache key schema.
+Only change this option when the default cache key confilcts with other actions, which is very unlikely to happen.
+
 ### Outputs
 
 #### `outputs.credentials`

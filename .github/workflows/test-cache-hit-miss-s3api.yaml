@@ -1,0 +1,19 @@
+on: [push, pull_request]
+
+name: Test (s3api)
+
+concurrency: test-s3api
+
+jobs:
+  run-test-cache-miss:
+    name: Cache Miss
+    uses: ./.github/workflows/test-s3api.yaml
+    with:
+      cache-key: ${{ github.sha }}-s3api
+
+  run-test-cache-hit:
+    needs: run-test-cache-miss
+    name: Cache Hit
+    uses: ./.github/workflows/test-s3api.yaml
+    with:
+      cache-key: ${{ github.sha }}-s3api

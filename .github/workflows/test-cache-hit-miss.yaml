@@ -1,0 +1,19 @@
+on: [push, pull_request]
+
+name: Test
+
+concurrency: test
+
+jobs:
+  run-test-cache-miss:
+    name: Cache Miss
+    uses: ./.github/workflows/test.yaml
+    with:
+      cache-key: ${{ github.sha }}
+
+  run-test-cache-hit:
+    needs: run-test-cache-miss
+    name: Cache Hit
+    uses: ./.github/workflows/test.yaml
+    with:
+      cache-key: ${{ github.sha }}

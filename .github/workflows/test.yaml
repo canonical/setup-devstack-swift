@@ -1,7 +1,12 @@
 on:
   workflow_call:
+    inputs:
+      cache-key:
+        default: ""
+        required: false
+        type: string
 
-name: Test
+name: Test OpenStack Swift (s3api)
 
 jobs:
   test-devstack-swift:
@@ -18,6 +23,9 @@ jobs:
       - id: devstack
         name: Run Devstack Swift Action
         uses: ./
+        # the cache-key here is for test purposes only, omit this for everyday usage
+        with:
+          cache-key: ${{ inputs.cache-key }}
 
       - name: Print Memory and Disk Usage
         run: |
