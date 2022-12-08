@@ -100,7 +100,7 @@ runs:
         lxc config device set devstack eth0 ipv4.address ${{ steps.parse-network.outputs.devstack-ip }} --project devstack
         lxc start devstack --project devstack
         timeout 120s bash -c 'until lxc exec devstack --project devstack -- bash -c "[ -d /home/ubuntu ]"; do sleep 1 && echo .; done; echo'
-        timeout 120s bash -c 'until lxc exec devstack --project devstack -- bash -c "ping -c 1 -W 1 github.com"; do sleep 1; done; echo'
+        timeout 120s bash -c 'until lxc exec devstack --project devstack -- bash -c "curl github.com --max-time 3 -s -o /dev/null"; do sleep 1 && echo .; done; echo'
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- git clone -b stable/yoga https://github.com/openstack/devstack.git
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- cp ./devstack/samples/local.conf ./devstack
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo disable_all_services >> ./devstack/local.conf"
