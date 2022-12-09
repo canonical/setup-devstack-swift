@@ -71,6 +71,7 @@ runs:
     - name: Setup LXD
       shell: bash
       run: |
+        sudo iptables -I DOCKER-USER  -j ACCEPT
         sudo snap install lxd
         sudo snap refresh lxd
         sudo lxd waitready
@@ -99,8 +100,11 @@ runs:
         lxc network attach lxdbrstack devstack eth0 eth0 --project devstack
         lxc config device set devstack eth0 ipv4.address ${{ steps.parse-network.outputs.devstack-ip }} --project devstack
         lxc start devstack --project devstack
+        echo waiting for initialization
         timeout 120s bash -c 'until lxc exec devstack --project devstack -- bash -c "[ -d /home/ubuntu ]"; do sleep 1 && echo .; done; echo'
-        lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- git clone -b stable/yoga https://opendev.org/openstack/devstack
+        echo waiting for network
+        timeout 120s bash -c 'until lxc exec devstack --project devstack -- bash -c "curl -sSL https://github.com/openstack/devstack.git -m 3 -o /dev/null"; do sleep 1; done; echo'
+        lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- git clone -b stable/yoga https://github.com/openstack/devstack.git
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- cp ./devstack/samples/local.conf ./devstack
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo disable_all_services >> ./devstack/local.conf"
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo enable_service key mysql s-proxy s-object s-container s-account >> ./devstack/local.conf"
@@ -122,7 +126,7 @@ runs:
         lxc start devstack --project devstack
 
     - name: Resume Devstack Swift Image From Tarball
-      if: always() && inputs.use-cache == 'true' && steps.devstack-swift-cache.outputs.cache-hit == 'true'
+      if: inputs.use-cache == 'true' && steps.devstack-swift-cache.outputs.cache-hit == 'true'
       shell: bash
       run: |
         cd .devstack
@@ -133,7 +137,6 @@ runs:
         lxc start devstack --project devstack
 
     - name: Create Credentials
-      if: always()
       shell: bash
       run: |
         timeout 120s bash -c "until [[ \$(lxc list -c4 --format csv devstack --project devstack) ]]; do sleep 1 && echo .; done; echo"
@@ -227,7 +230,6 @@ runs:
         print(credentials)
 
     - name: Output Credentials
-      if: always()
       id: output-credentials
       shell: bash
       run: |

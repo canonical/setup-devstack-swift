@@ -36,4 +36,3 @@ jobs:
           rm greading
           openstack object save default greading
           grep -Fxq hello greading
-      
