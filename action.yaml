@@ -235,6 +235,7 @@ runs:
       id: output-credentials
       shell: bash
       run: |
-        CREDENTIALS="$(cat credentials)"
-        echo "credentials=$CREDENTIALS" >> $GITHUB_OUTPUT
+        echo "credentials<<EOF" >> $GITHUB_OUTPUT
+        cat credentials >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
         rm credentials
