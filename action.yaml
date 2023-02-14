@@ -236,6 +236,6 @@ runs:
       shell: bash
       run: |
         echo "credentials<<EOF" >> $GITHUB_OUTPUT
-        cat credentials >> $GITHUB_OUTPUT
+        sed -e '$a\' credentials >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
         rm credentials
