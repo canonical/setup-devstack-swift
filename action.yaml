@@ -236,8 +236,5 @@ runs:
       shell: bash
       run: |
         CREDENTIALS="$(cat credentials)"
-        CREDENTIALS="${CREDENTIALS//'%'/'%25'}"
-        CREDENTIALS="${CREDENTIALS//$'\n'/'%0A'}"
-        CREDENTIALS="${CREDENTIALS//$'\r'/'%0D'}"
         echo "credentials=$CREDENTIALS" >> $GITHUB_OUTPUT
         rm credentials
