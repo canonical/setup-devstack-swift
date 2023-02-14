@@ -53,6 +53,7 @@ runs:
       run: |
         import ipaddress
         import itertools
+        import os
 
         interface = ipaddress.IPv4Interface("${{ inputs.network }}")
         address = interface.ip
@@ -64,8 +65,9 @@ runs:
             )
         for host_address in itertools.islice(network, 1, None):
             if host_address != address:
-                print("::set-output name=devstack-ip::{}".format(address))
-                print("::set-output name=host-address::{}/{}".format(host_address, prefix_len))
+                with open(os.environ['GITHUB_OUTPUT'], "a") as f:
+                    print(f"devstack-ip={address}", file=f)
+                    print(f"host-address={host_address}/{prefix_len}", file=f)
                 break
 
     - name: Setup LXD
@@ -237,5 +239,5 @@ runs:
         CREDENTIALS="${CREDENTIALS//'%'/'%25'}"
         CREDENTIALS="${CREDENTIALS//$'\n'/'%0A'}"
         CREDENTIALS="${CREDENTIALS//$'\r'/'%0D'}"
-        echo "::set-output name=credentials::$CREDENTIALS"
+        echo "credentials=$CREDENTIALS" >> $GITHUB_OUTPUT
         rm credentials
