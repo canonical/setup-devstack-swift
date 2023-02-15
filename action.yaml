@@ -118,7 +118,6 @@ runs:
       if: inputs.use-cache == 'true' && steps.devstack-swift-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        mkdir .devstack
         cd .devstack
         lxc stop devstack --project devstack
         lxc snapshot devstack devstack-snapshot --project devstack
