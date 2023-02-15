@@ -65,9 +65,9 @@ runs:
             )
         for host_address in itertools.islice(network, 1, None):
             if host_address != address:
-                with open(os.environ['GITHUB_OUTPUT'], "a") as f:
-                    print(f"devstack-ip={address}", file=f)
-                    print(f"host-address={host_address}/{prefix_len}", file=f)
+                with open(os.environ['GITHUB_OUTPUT'], "a") as file:
+                    print(f"devstack-ip={address}", file=file)
+                    print(f"host-address={host_address}/{prefix_len}", file=file)
                 break
 
     - name: Setup LXD
