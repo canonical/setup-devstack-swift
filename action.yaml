@@ -92,13 +92,13 @@ runs:
       uses: actions/cache@v3
       with:
         path: ${{ github.workspace }}/.devstack/
-        key: ${{ inputs.cache-key != '' && inputs.cache-key || format( 'lxd-devstack-keystone-swift-20.04-{0}{1}', inputs.network, inputs.s3api == 'true' && '-s3api' || '') }}
+        key: ${{ inputs.cache-key != '' && inputs.cache-key || format( 'lxd-devstack-keystone-swift-2023.2-22.04-{0}{1}', inputs.network, inputs.s3api == 'true' && '-s3api' || '') }}
 
-    - name: Buid Devstack Swift LXD Container
+    - name: Build Devstack Swift LXD Container
       if: inputs.use-cache != 'true' || steps.devstack-swift-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        lxc init ubuntu:20.04 devstack --project devstack
+        lxc init ubuntu:22.04 devstack --project devstack
         lxc network attach lxdbrstack devstack eth0 eth0 --project devstack
         lxc config device set devstack eth0 ipv4.address ${{ steps.parse-network.outputs.devstack-ip }} --project devstack
         lxc start devstack --project devstack
@@ -106,15 +106,16 @@ runs:
         timeout 120s bash -c 'until lxc exec devstack --project devstack -- bash -c "[ -d /home/ubuntu ]"; do sleep 1 && echo .; done; echo'
         echo waiting for network
         timeout 120s bash -c 'until lxc exec devstack --project devstack -- bash -c "curl -sSL https://github.com/openstack/devstack.git -m 3 -o /dev/null"; do sleep 1; done; echo'
-        lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- git clone -b stable/zed https://github.com/openstack/devstack.git
+        lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- git clone -b stable/2023.2 https://github.com/openstack/devstack.git
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- cp ./devstack/samples/local.conf ./devstack
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo disable_all_services >> ./devstack/local.conf"
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo enable_service key mysql s-proxy s-object s-container s-account >> ./devstack/local.conf"
         [ ${{ inputs.s3api }} = true ] && lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo enable_service s3api >> ./devstack/local.conf"
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo ENABLE_KSM=False >> ./devstack/local.conf"
         lxc exec devstack --cwd /home/ubuntu/devstack --project devstack -- sudo --login --user ubuntu /home/ubuntu/devstack/stack.sh
+        lxc exec devstack --project devstack -- sh -c "echo > /etc/fstab"
 
-    - name: Generate Devstack Image Snapshot 
+    - name: Generate Devstack Image Snapshot
       if: inputs.use-cache == 'true' && steps.devstack-swift-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
