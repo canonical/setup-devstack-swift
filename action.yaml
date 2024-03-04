@@ -157,7 +157,7 @@ runs:
             sleep $(( WAIT++ ))
         done
         [ $WAIT -lt 10 ]
-        
+
     - name: Convert Credentials to S3 Style
       if: inputs.s3api == 'true'
       shell: python
