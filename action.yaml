@@ -106,7 +106,7 @@ runs:
         timeout 120s bash -c 'until lxc exec devstack --project devstack -- bash -c "[ -d /home/ubuntu ]"; do sleep 1 && echo .; done; echo'
         echo waiting for network
         timeout 120s bash -c 'until lxc exec devstack --project devstack -- bash -c "curl -sSL https://github.com/openstack/devstack.git -m 3 -o /dev/null"; do sleep 1; done; echo'
-        lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- git clone -b stable/2023.2 https://github.com/openstack/devstack.git
+        lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- git clone -b unmaintained/2023.1 https://github.com/openstack/devstack.git
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- cp ./devstack/samples/local.conf ./devstack
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo disable_all_services >> ./devstack/local.conf"
         lxc exec devstack --user 1000 --cwd /home/ubuntu --project devstack -- sh -c "echo enable_service key mysql s-proxy s-object s-container s-account >> ./devstack/local.conf"
