@@ -74,8 +74,10 @@ runs:
       shell: bash
       run: |
         sudo iptables -I DOCKER-USER  -j ACCEPT
-        sudo snap install lxd
-        sudo snap refresh lxd
+        if snap list lxd 2> /dev/null; then
+          sudo snap refresh lxd
+        else
+          sudo snap install lxd
         sudo lxd waitready
         sudo lxd init --auto
         sudo lxc project create devstack -c features.images=false
