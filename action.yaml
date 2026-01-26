@@ -78,6 +78,7 @@ runs:
           sudo snap refresh lxd
         else
           sudo snap install lxd
+        fi
         sudo lxd waitready
         sudo lxd init --auto
         sudo lxc project create devstack -c features.images=false
