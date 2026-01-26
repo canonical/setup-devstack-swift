@@ -75,9 +75,9 @@ runs:
       run: |
         sudo iptables -I DOCKER-USER  -j ACCEPT
         if snap list lxd 2> /dev/null; then
-          sudo snap refresh lxd
+          sudo snap refresh lxd --channel 5.21/stable
         else
-          sudo snap install lxd
+          sudo snap install lxd --channel 5.21/stable
         fi
         sudo lxd waitready
         sudo lxd init --auto
