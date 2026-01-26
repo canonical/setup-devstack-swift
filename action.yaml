@@ -76,7 +76,7 @@ runs:
         sudo iptables -I DOCKER-USER  -j ACCEPT
         if snap list lxd 2> /dev/null; then
           for i in {1..10}; do
-            if [ $i == 10 ]
+            if [ $i == 10 ]; then
               sudo snap refresh lxd --channel 5.21/stable
             else
               sudo snap refresh lxd --channel 5.21/stable && break || :
@@ -85,7 +85,7 @@ runs:
           done
         else
           for i in {1..10}; do
-            if [ $i == 10 ]
+            if [ $i == 10 ]; then
               sudo snap install lxd --channel 5.21/stable
             else
               sudo snap install lxd --channel 5.21/stable && break || :
